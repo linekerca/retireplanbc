@@ -176,6 +176,13 @@
 </div>
 
 <div class="card">
+  <h2>OAS clawback by year</h2>
+  <canvas id="clawchart" style="width:100%;height:260px;display:block"></canvas>
+  <div id="clawlegend" style="display:flex;gap:16px;justify-content:center;margin-top:8px;font-size:12px;color:#3a3a3c;flex-wrap:wrap"></div>
+  <div id="clawnote" style="font-size:12px;color:#8e8e93;margin-top:6px;text-align:center"></div>
+</div>
+
+<div class="card">
   <h2>Year-by-year projection</h2>
   <div class="tablewrap"><table id="grid">
     <thead><tr><th>Age</th><th>RRSP end $</th><th>Taxable end $</th><th>TFSA end $</th>
@@ -428,8 +435,10 @@ function _project(p){
       if (bal <= 1 && !(name in depletion) && i > 0) depletion[name] = age;
     }
 
+    const oas_clawed_yr = Math.max(0, oas_full - oas);
     rows.push({age, year: 2026+i, rrsp, tfsa, taxable,
-      rental, cpp, oas, w_taxable: wt, w_rrsp: wr, w_tfsa: wf,
+      rental, cpp, oas, oas_clawed: oas_clawed_yr, claw_thr,
+      w_taxable: wt, w_rrsp: wr, w_tfsa: wf,
       tfsa_contrib: contrib_made,
       taxable_income: ti, tax, spending, shortfall: short,
       final_tax: 0, probate: 0});
@@ -557,7 +566,81 @@ document.getElementById("calc").addEventListener("click", () => {
     tb.appendChild(tr);
   }
   drawCashFlowChart(rows);
+  drawClawbackChart(rows);
 });
+
+function drawClawbackChart(rows){
+  const cv = document.getElementById("clawchart");
+  if (!cv || !rows.length) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = cv.clientWidth, H = 260;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const ctx = cv.getContext("2d");
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+  const data = rows.map(r => ({
+    age: r.age,
+    income: Math.max(0, r.taxable_income || 0),
+    clawed: Math.max(0, r.oas_clawed || 0),
+    thr: r.claw_thr || 0
+  }));
+  const maxV = Math.max(1, ...data.map(d => Math.max(d.income, d.thr)));
+  const padL = 48, padR = 8, padT = 12, padB = 28;
+  const cw = W - padL - padR, ch = H - padT - padB;
+  const n = data.length;
+  const slot = cw / n;
+  const bw = Math.max(2, Math.min(18, slot * 0.7));
+  // y gridlines
+  ctx.strokeStyle = "#e5e5ea"; ctx.fillStyle = "#8e8e93";
+  ctx.font = "10px -apple-system, sans-serif"; ctx.textAlign = "right";
+  const steps = 4;
+  for (let i = 0; i <= steps; i++){
+    const v = maxV * i / steps;
+    const y = padT + ch - (v / maxV) * ch;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+    const label = v >= 1000 ? (v/1000).toFixed(0) + "k" : v.toFixed(0);
+    ctx.fillText(label, padL - 6, y + 3);
+  }
+  // income bars: red if clawback, blue otherwise
+  ctx.textAlign = "center";
+  data.forEach((d, i) => {
+    const x = padL + i * slot + (slot - bw) / 2;
+    const h = (d.income / maxV) * ch;
+    const y = padT + ch - h;
+    ctx.fillStyle = d.clawed > 1 ? "#ff3b30" : "#007aff";
+    ctx.fillRect(x, y, bw, h);
+    if (d.age % 5 === 0 || i === 0 || i === n - 1){
+      ctx.fillStyle = "#8e8e93";
+      ctx.fillText(String(d.age), padL + i * slot + slot/2, H - 10);
+    }
+  });
+  // threshold line (use first year's thr, indexed)
+  ctx.strokeStyle = "#ff9500"; ctx.setLineDash([5, 4]); ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  data.forEach((d, i) => {
+    const x = padL + i * slot + slot/2;
+    const y = padT + ch - (d.thr / maxV) * ch;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.stroke(); ctx.setLineDash([]);
+  // legend
+  const lg = document.getElementById("clawlegend");
+  lg.innerHTML = "";
+  [["#007aff","Income (no clawback)"], ["#ff3b30","Income (clawback hit)"], ["#ff9500","Clawback threshold"]].forEach(([c, label]) => {
+    const s = document.createElement("span");
+    s.innerHTML = `<i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${c};margin-right:5px;vertical-align:-1px"></i>${label}`;
+    lg.appendChild(s);
+  });
+  // note: list clawback years
+  const hit = data.filter(d => d.clawed > 1);
+  const note = document.getElementById("clawnote");
+  if (hit.length){
+    const total = hit.reduce((a,d) => a + d.clawed, 0);
+    note.textContent = `Clawback in ${hit.length} year${hit.length>1?"s":""} (ages ${hit[0].age}–${hit[hit.length-1].age}), total OAS lost: $${Math.round(total).toLocaleString()}`;
+  } else {
+    note.textContent = "No clawback in any year — income stays below the threshold.";
+  }
+}
 
 function drawCashFlowChart(rows){
   const cv = document.getElementById("cfchart");
