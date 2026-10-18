@@ -100,7 +100,7 @@
   <div class="row"><label>Retirement age</label><input id="retire_age" type="number" value="50"></div>
   <div class="row"><label>Plan to age</label><input id="life_expectancy" type="number" value="90"></div>
   <div class="row"><label>Annual spending (after-tax, $)</label><input id="annual_spending" type="number" value="60000"></div>
-  <div class="row"><label>TFSA annual contribution ($/yr)</label><input id="tfsa_annual_contrib" type="number" value="7000"></div>
+  <div class="row"><label>TFSA annual contribution ($/yr, +$500 every 4 yrs)</label><input id="tfsa_annual_contrib" type="number" value="7000"></div>
   <div class="row"><label>Withdrawal order</label><select id="withdraw_order">
     <option value="auto_legacy" selected>Auto: maximize legacy</option>
     <option value="auto_taxes">Auto: minimize taxes</option>
@@ -125,7 +125,6 @@
   <div class="row"><label>Average market return %</label><input id="market_return" type="number" step="0.1" value="8"></div>
   <div class="row"><label>Average market return (real estate) %</label><input id="real_estate_return" type="number" step="0.1" value="3.0"></div>
   <div class="row"><label>Inflation %</label><input id="inflation" type="number" step="0.1" value="2.5"></div>
-  <div class="row"><label>RRSP meltdown target income ($)</label><input id="meltdown_target" type="number" value="58523"></div>
 </div>
 
 <div class="card">
@@ -330,7 +329,7 @@ function _project(p){
     const rental_tax = 0.0; // net rental income treated as non-taxable (CCA)
     const cpp = (age >= p.cpp_start) ? cpp_annual(p.cpp_monthly_65, p.cpp_start, infl) : 0;
     const claw_thr = OAS_CLAWBACK_THRESHOLD_2026 * infl;
-    const meltdown_t = p.meltdown_target * infl;
+    const meltdown_t = 58523 * infl; // hardcoded (was user input)
 
     const spend_need = Math.max(0, spending - rental);
     const contrib = p.tfsa_annual_contrib + 500 * Math.floor(i / 4); // stepped: +$500 every 4 yrs
@@ -476,7 +475,7 @@ function _project(p){
 
 const IDS = ["current_age","retire_age","life_expectancy","annual_spending","tfsa_annual_contrib","rrsp","lira",
   "tfsa","taxable","taxable_acb","real_estate","market_return","real_estate_return",
-  "inflation","meltdown_target","rental_monthly","cpp_monthly_65","cpp_start",
+  "inflation","rental_monthly","cpp_monthly_65","cpp_start",
   "oas_start","oas_res_years","mortgage_monthly","leverage_monthly"];
 const INT_IDS = new Set(["current_age","retire_age","life_expectancy","cpp_start","oas_start","oas_res_years"]);
 const PCT_IDS = new Set(["market_return","real_estate_return","inflation"]);
@@ -737,7 +736,7 @@ const ROLLER = {
   tfsa:{min:0,max:10000000,step:10000}, taxable:{min:0,max:10000000,step:10000},
   taxable_acb:{min:0,max:10000000,step:10000}, real_estate:{min:0,max:20000000,step:10000},
   market_return:{min:0,max:15,step:0.1,dec:1}, real_estate_return:{min:0,max:15,step:0.1,dec:1},
-  inflation:{min:0,max:10,step:0.1,dec:1}, meltdown_target:{min:0,max:300000,step:1000},
+  inflation:{min:0,max:10,step:0.1,dec:1}, 
   rental_monthly:{min:0,max:50000,step:100}, cpp_monthly_65:{min:0,max:1600,step:1},
   cpp_start:{values:[60,61,62,63,64,65,66,67,68,69,70]}, oas_start:{values:[65,70]},
   oas_res_years:{min:0,max:47,step:1},
