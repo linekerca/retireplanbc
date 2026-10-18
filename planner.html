@@ -573,15 +573,17 @@ function drawCashFlowChart(rows){
     age: r.age,
     rrsp: Math.max(0, r.w_rrsp || 0),
     tfsa: Math.max(0, r.w_tfsa || 0),
-    taxable: Math.max(0, r.w_taxable || 0)
+    taxable: Math.max(0, r.w_taxable || 0),
+    cpp: Math.max(0, r.cpp || 0),
+    oas: Math.max(0, r.oas || 0)
   }));
-  const maxV = Math.max(1, ...data.map(d => d.rrsp + d.tfsa + d.taxable));
+  const maxV = Math.max(1, ...data.map(d => d.rrsp + d.tfsa + d.taxable + d.cpp + d.oas));
   const padL = 48, padR = 8, padT = 12, padB = 28;
   const cw = W - padL - padR, ch = H - padT - padB;
   const n = data.length;
   const slot = cw / n;
   const bw = Math.max(2, Math.min(18, slot * 0.7));
-  const colors = { rrsp: "#007aff", tfsa: "#34c759", taxable: "#ff9500" };
+  const colors = { rrsp: "#007aff", tfsa: "#34c759", taxable: "#ff9500", cpp: "#af52de", oas: "#5ac8fa" };
   // y gridlines
   ctx.strokeStyle = "#e5e5ea"; ctx.fillStyle = "#8e8e93";
   ctx.font = "10px -apple-system, sans-serif"; ctx.textAlign = "right";
@@ -598,7 +600,7 @@ function drawCashFlowChart(rows){
   data.forEach((d, i) => {
     const x = padL + i * slot + (slot - bw) / 2;
     let y0 = padT + ch;
-    const segs = [["rrsp", d.rrsp], ["tfsa", d.tfsa], ["taxable", d.taxable]];
+    const segs = [["rrsp", d.rrsp], ["tfsa", d.tfsa], ["taxable", d.taxable], ["cpp", d.cpp], ["oas", d.oas]];
     for (const [key, val] of segs){
       if (val <= 0) continue;
       const h = (val / maxV) * ch;
@@ -615,7 +617,7 @@ function drawCashFlowChart(rows){
   // legend
   const lg = document.getElementById("cflegend");
   lg.innerHTML = "";
-  [["rrsp","RRSP"], ["tfsa","TFSA"], ["taxable","Taxable"]].forEach(([key, label]) => {
+  [["rrsp","RRSP"], ["tfsa","TFSA"], ["taxable","Taxable"], ["cpp","CPP"], ["oas","OAS"]].forEach(([key, label]) => {
     const s = document.createElement("span");
     s.innerHTML = `<i style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${colors[key]};margin-right:5px;vertical-align:-1px"></i>${label}`;
     lg.appendChild(s);
