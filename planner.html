@@ -420,8 +420,8 @@ function _project(p){
       wf = Math.min(tfsa, spend_need - got);
       tfsa -= wf; got += wf;
     }
-    // annual TFSA contribution from funded after-tax cash
-    const contrib_made = Math.min(contrib, Math.max(0, got - spend_need));
+    // annual TFSA contribution: always the full maximum (no skips)
+    const contrib_made = contrib;
     tfsa += contrib_made;
 
     const short = Math.max(0, spend_need - got);
