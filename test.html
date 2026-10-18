@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html><head>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+#pagebar { position: fixed; right: 5px; top: 8px; bottom: 8px; width: 30px;
+           background: rgba(229,229,234,.9); border-radius: 15px; z-index: 60;
+           touch-action: none; }
+#pthumb { position: absolute; left: 4px; right: 4px; top: 100px; height: 52px;
+          background: #007aff; border-radius: 11px; touch-action: none; }
+#log { position: fixed; left: 10px; top: 10px; font: 14px monospace; }
+</style>
+</head><body>
+<div id="log">Tap the bar...</div>
+<div style="height:3000px">Long page for scrolling</div>
+<div id="pagebar"><div id="pthumb"></div></div>
+<script>
+const bar = document.getElementById("pagebar");
+const log = document.getElementById("log");
+let n = 0;
+bar.addEventListener("touchstart", e => {
+  e.preventDefault();
+  n++;
+  log.textContent = "touchstart #" + n + " y=" + Math.round(e.touches[0].clientY);
+  bar.style.background = "#ff3b30";
+  setTimeout(()=>{ bar.style.background = ""; }, 300);
+}, {passive: false});
+bar.addEventListener("touchmove", e => {
+  e.preventDefault();
+  log.textContent = "touchmove y=" + Math.round(e.touches[0].clientY);
+}, {passive: false});
+</script>
+</body></html>
