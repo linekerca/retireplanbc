@@ -333,7 +333,7 @@ function _project(p){
     const meltdown_t = p.meltdown_target * infl;
 
     const spend_need = Math.max(0, spending - rental);
-    const contrib = p.tfsa_annual_contrib * infl; // indexed with inflation
+    const contrib = p.tfsa_annual_contrib + 500 * Math.floor(i / 4); // stepped: +$500 every 4 yrs
     const need = spend_need + contrib;
     let remaining = need;
 
