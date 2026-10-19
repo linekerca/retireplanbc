@@ -606,8 +606,8 @@ for (const id of IDS){
 const wo = document.getElementById("withdraw_order");
 if (wo) wo.addEventListener("change", scheduleRecalc);
 window.addEventListener("load", recalc);
-recalc();
 let mcTimer = null;
+recalc();
 function scheduleMC(){
   clearTimeout(mcTimer);
   mcTimer = setTimeout(runMC, 800);
