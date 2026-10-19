@@ -203,7 +203,7 @@
 CPP/OAS rules. Verify with a qualified professional. Net rental income treated as
 non-taxable (CCA). Real estate is held, never drawn down. Liabilities rise with inflation.
 TFSA contributions are funded from after-tax cash after spending is covered.
-Final year adds BC probate fees (on the gross estate, including the home) and
+Final year adds BC probate fees (on the gross estate excluding TFSA, including the home) and
 terminal income tax on deemed dispositions (RRSP fully taxable, taxable-account
 gains at 50% inclusion); the owner-occupied home is exempt from terminal capital
 gains tax. Assumes no spousal rollover and no designated beneficiaries.</p>
@@ -461,13 +461,15 @@ function _project(p){
   }
 
   // terminal adjustments in the final year (death): deemed dispositions
-  // (RRSP fully taxable; taxable-account unrealized gains at 50% inclusion)
-  // + BC probate fees. The owner-occupied home is exempt from terminal
-  // capital gains tax (principal residence) but counts toward probate.
+  // (RRSP fully taxable; taxable-account unrealized gains at 50% inclusion;
+  //  TFSA is tax-free and excluded). BC probate fees apply to the gross
+  // estate excluding TFSA (designated beneficiary bypasses probate).
+  // The owner-occupied home is exempt from terminal capital gains tax
+  // (principal residence) but counts toward probate.
   const infl_last = Math.pow(1 + p.inflation, n_years - 1);
   const deemed = rrsp + Math.max(0, taxable - acb) * 0.5;
   const last = rows[rows.length - 1];
-  const gross_estate = rrsp + tfsa + taxable + re_estate;
+  const gross_estate = rrsp + taxable + re_estate;  // TFSA excluded: designated beneficiary bypasses probate
   const probate = bc_probate_fee(gross_estate);
   const tax_with_deemed = tax_indexed(last.taxable_income + deemed, infl_last,
                                       FED_BPA_2026, BC_BPA_2026);
