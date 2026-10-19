@@ -122,7 +122,7 @@
 
 <div class="card">
   <h2>Assumptions & monthly liabilities</h2>
-  <div class="row"><label>Average market return %</label><input id="market_return" type="number" step="0.1" value="8"></div>
+  <div class="row"><label>Average market return %</label><input id="market_return" type="number" step="0.1" value="10"></div>
   <div class="row"><label>Average market return (real estate) %</label><input id="real_estate_return" type="number" step="0.1" value="3.0"></div>
   <div class="row"><label>Inflation %</label><input id="inflation" type="number" step="0.1" value="2.5"></div>
   <div class="row"><label>Home mortgage payment ($/month)</label><input id="mortgage_monthly" type="number" value="0"></div>
@@ -151,8 +151,8 @@
 
 <div class="card">
   <h2>Monte Carlo inputs</h2>
-  <div class="row"><label>Simulations</label><input id="mc_sims" type="number" value="500"></div>
-  <div class="row"><label>Market return std dev (%)</label><input id="mc_sd_mkt" type="number" value="12" step="0.5"></div>
+  <div class="row"><label>Simulations</label><input id="mc_sims" type="number" value="10000"></div>
+  <div class="row"><label>Market return std dev (%)</label><input id="mc_sd_mkt" type="number" value="17" step="0.5"></div>
   <div class="row"><label>Inflation std dev (%)</label><input id="mc_sd_inf" type="number" value="1.5" step="0.1"></div>
   <div class="row"><label>Real estate std dev (%)</label><input id="mc_sd_re" type="number" value="8" step="0.5"></div>
   <div class="fine">Each simulation draws yearly market return, inflation, and real-estate return from a fat-tailed distribution (Student's t) centered on your inputs — matching real market crash frequency. Success = spending met every year.</div>
@@ -643,7 +643,7 @@ function runMC(){
   const n_years = Math.floor(p.life_expectancy - p.current_age) + 1;
   let done = 0, ok = 0;
   const legs = [];
-  let failed_count = 0, total_shortfall = 0;
+  let failed_count = 0, total_shortfall = 0, total_fail_age = 0;
   const CHUNK = 25;
   el.innerHTML = '<div class="srow"><span>Simulating&hellip; 0%</span></div>';
   function chunk(){
@@ -664,6 +664,7 @@ function runMC(){
         let sim_short = 0;
         for (const row of r.rows) sim_short += row.shortfall || 0;
         total_shortfall += sim_short;
+        total_fail_age += r.summary.shortfall_age || 0;
       }
       legs.push(r.summary.legacy_after_tax);
     }
@@ -685,7 +686,9 @@ function runMC(){
       srow("Success rate", (rate*100).toFixed(1) + "% (" + ok + "/" + n + ")", true);
       if (failed_count > 0){
         const avg_monthly = (total_shortfall / failed_count) / n_years / 12;
+        const avg_age = total_fail_age / failed_count;
         srow("Avg monthly shortfall (failed plans)", fmt(avg_monthly) + "/mo (" + failed_count + " plans)");
+        srow("Avg age plan failed", "Age " + avg_age.toFixed(1));
       }
       srow("Legacy (10th %ile)", fmt(q(0.1)));
       srow("Legacy (median)", fmt(q(0.5)));
