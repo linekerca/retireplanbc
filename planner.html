@@ -182,7 +182,7 @@
 
 <div class="card">
   <h2>Monte Carlo</h2>
-  <div class="row"><label>Simulations</label><input id="mc_sims" type="number" value="1000"></div>
+  <div class="row"><label>Simulations</label><input id="mc_sims" type="number" value="500"></div>
   <div class="row"><label>Market return std dev (%)</label><input id="mc_sd_mkt" type="number" value="12" step="0.5"></div>
   <div class="row"><label>Inflation std dev (%)</label><input id="mc_sd_inf" type="number" value="1.5" step="0.1"></div>
   <div class="row"><label>Real estate std dev (%)</label><input id="mc_sd_re" type="number" value="8" step="0.5"></div>
@@ -521,27 +521,6 @@ function randn(){
   while (v === 0) v = Math.random();
   return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
 }
-function runMonteCarlo(p, nSims, sdMkt, sdInf, sdRe){
-  const base = run_projection(p);
-  const eff = base.summary.strategy_used;
-  const n_years = Math.floor(p.life_expectancy - p.current_age) + 1;
-  let ok = 0;
-  const legs = [];
-  for (let s = 0; s < nSims; s++){
-    const mc = {mkt: [], inf: [], re: []};
-    for (let i = 0; i < n_years; i++){
-      mc.mkt.push(p.market_return + randn() * sdMkt);
-      mc.inf.push(p.inflation + randn() * sdInf);
-      mc.re.push(p.real_estate_return + randn() * sdRe);
-    }
-    const r = _project(Object.assign({}, p, {withdraw_order: eff, mc: mc}));
-    if (!r.summary.shortfall_age) ok++;
-    legs.push(r.summary.legacy_after_tax);
-  }
-  legs.sort((a,b) => a - b);
-  const q = x => legs[Math.min(nSims-1, Math.floor(nSims * x))];
-  return {rate: ok / nSims, p10: q(0.1), p50: q(0.5), p90: q(0.9), n: nSims};
-}
 function recalc(){
   const err = document.getElementById("err");
   err.textContent = "";
@@ -633,31 +612,60 @@ function scheduleMC(){
   clearTimeout(mcTimer);
   mcTimer = setTimeout(runMC, 800);
 }
+let mcRunId = 0;
 function runMC(){
   const el = document.getElementById("mc_results");
   if (!el) return;
   let p;
   try { p = get_inputs(); } catch(e){ el.innerHTML = ""; return; }
-  el.innerHTML = '<div class="srow"><span>Simulating&hellip;</span></div>';
-  setTimeout(() => {
-    const n = Math.max(100, Math.min(10000, parseInt(document.getElementById("mc_sims").value) || 1000));
-    const sdM = (parseFloat(document.getElementById("mc_sd_mkt").value) || 0) / 100;
-    const sdI = (parseFloat(document.getElementById("mc_sd_inf").value) || 0) / 100;
-    const sdR = (parseFloat(document.getElementById("mc_sd_re").value) || 0) / 100;
-    const r = runMonteCarlo(p, n, sdM, sdI, sdR);
-    el.innerHTML = "";
-    function srow(l, v, b){
-      const d = document.createElement("div"); d.className = "srow";
-      const s = document.createElement("span"); s.textContent = l;
-      const bb = document.createElement("b"); bb.textContent = v;
-      if (b) d.style.fontWeight = "700";
-      d.appendChild(s); d.appendChild(bb); el.appendChild(d);
+  const n = Math.max(100, Math.min(10000, parseInt(document.getElementById("mc_sims").value) || 500));
+  const sdM = (parseFloat(document.getElementById("mc_sd_mkt").value) || 0) / 100;
+  const sdI = (parseFloat(document.getElementById("mc_sd_inf").value) || 0) / 100;
+  const sdR = (parseFloat(document.getElementById("mc_sd_re").value) || 0) / 100;
+  const runId = ++mcRunId;
+  const base = run_projection(p);
+  const eff = base.summary.strategy_used;
+  const n_years = Math.floor(p.life_expectancy - p.current_age) + 1;
+  let done = 0, ok = 0;
+  const legs = [];
+  const CHUNK = 25;
+  el.innerHTML = '<div class="srow"><span>Simulating&hellip; 0%</span></div>';
+  function chunk(){
+    if (runId !== mcRunId) return;
+    const end = Math.min(n, done + CHUNK);
+    for (; done < end; done++){
+      const mc = {mkt: [], inf: [], re: []};
+      for (let i = 0; i < n_years; i++){
+        mc.mkt.push(p.market_return + randn() * sdM);
+        mc.inf.push(p.inflation + randn() * sdI);
+        mc.re.push(p.real_estate_return + randn() * sdR);
+      }
+      const r = _project(Object.assign({}, p, {withdraw_order: eff, mc: mc}));
+      if (!r.summary.shortfall_age) ok++;
+      legs.push(r.summary.legacy_after_tax);
     }
-    srow("Success rate", (r.rate*100).toFixed(1) + "% (" + Math.round(r.rate*r.n) + "/" + r.n + ")", true);
-    srow("Legacy (10th %ile)", fmt(r.p10));
-    srow("Legacy (median)", fmt(r.p50));
-    srow("Legacy (90th %ile)", fmt(r.p90));
-  }, 30);
+    if (done < n){
+      el.innerHTML = '<div class="srow"><span>Simulating&hellip; ' + Math.round(done/n*100) + '%</span></div>';
+      setTimeout(chunk, 0);
+    } else {
+      legs.sort((a,b) => a - b);
+      const q = x => legs[Math.min(n-1, Math.floor(n * x))];
+      const rate = ok / n;
+      el.innerHTML = "";
+      function srow(l, v, b){
+        const d = document.createElement("div"); d.className = "srow";
+        const s = document.createElement("span"); s.textContent = l;
+        const bb = document.createElement("b"); bb.textContent = v;
+        if (b) d.style.fontWeight = "700";
+        d.appendChild(s); d.appendChild(bb); el.appendChild(d);
+      }
+      srow("Success rate", (rate*100).toFixed(1) + "% (" + ok + "/" + n + ")", true);
+      srow("Legacy (10th %ile)", fmt(q(0.1)));
+      srow("Legacy (median)", fmt(q(0.5)));
+      srow("Legacy (90th %ile)", fmt(q(0.9)));
+    }
+  }
+  setTimeout(chunk, 30);
 }
 for (const id of ["mc_sims","mc_sd_mkt","mc_sd_inf","mc_sd_re"]){
   const el = document.getElementById(id);
