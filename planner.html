@@ -139,7 +139,7 @@
 <div class="card">
   <h2>Monthly liabilities</h2>
   <div class="row"><label>Home mortgage payment ($/month)</label><input id="mortgage_monthly" type="number" value="0"></div>
-</div>
+  <div class="row"><label>Other monthly liabilities ($/month)</label><input id="other_monthly" type="number" value="0"></div>
 </div>
 
 <div class="card">
@@ -148,9 +148,11 @@
   <div class="row"><label>Loan amount ($)</label><input id="lev_loan" type="number" value="250000"></div>
   <div class="row"><label>Interest rate (%/yr)</label><input id="lev_rate" type="number" value="3.65" step="0.05"></div>
   <div class="row"><label>Amortization (years)</label><input id="lev_amort" type="number" value="30"></div>
-  <div class="srow"><span>Monthly payment</span><b id="lev_pmt_display">$1,144</b></div>
-  <div class="fine">Payment is auto-calculated and used as the leverage loan payment above.</div>
+  <div class="row"><label>Monthly payment ($/month)</label><input id="lev_pmt" type="number" value="1144"></div>
+  <div class="fine">Payment auto-updates when loan, rate, or amortization change — or adjust it directly with the roller.</div>
 </div>
+</div>
+
 
 <div class="btnrow">
   <button id="csv" class="secondary">Export CSV</button>
@@ -350,7 +352,7 @@ function _project(p){
     rrsp *= (1+ret); tfsa *= (1+ret); taxable *= (1+ret);
     re_estate *= (1 + re_ret);
 
-    const spending = (p.annual_spending + (p.mortgage_monthly + p.leverage_monthly)*12) * infl;
+    const spending = (p.annual_spending + (p.mortgage_monthly + p.other_monthly + p.leverage_monthly)*12) * infl;
     const rental = p.rental_monthly*12*infl;
     const rental_tax = 0.0; // net rental income treated as non-taxable (CCA)
     const cpp = (age >= p.cpp_start) ? cpp_annual(p.cpp_monthly_65, p.cpp_start, infl) : 0;
@@ -503,7 +505,7 @@ const IDS = ["current_age","retire_age","life_expectancy","annual_spending","tfs
   "tfsa","taxable","taxable_acb","real_estate","market_return","real_estate_return",
   "inflation","rental_monthly","cpp_monthly_65","cpp_start",
   "oas_start","oas_res_years","mortgage_monthly",
-  "lev_investment","lev_loan","lev_rate","lev_amort"];
+  "lev_investment","lev_loan","lev_rate","lev_amort","lev_pmt","other_monthly"];
 const INT_IDS = new Set(["current_age","retire_age","life_expectancy","cpp_start","oas_start","oas_res_years"]);
 const PCT_IDS = new Set(["market_return","real_estate_return","inflation","lev_rate"]);
 let lastRows = [];
@@ -528,7 +530,7 @@ function get_inputs(){
   for (const id of INT_IDS) p[id] = Math.floor(p[id]);
   p.withdraw_order = document.getElementById("withdraw_order").value;
   p.rental_taxfree = true;
-  p.leverage_monthly = loanPMT(p.lev_loan, p.lev_rate, p.lev_amort);
+  p.leverage_monthly = p.lev_pmt;
   if (p.retire_age < p.current_age) throw new Error("Retirement age can't be before current age.");
   return p;
 }
@@ -568,7 +570,6 @@ function recalc(){
   catch(e){ err.textContent = e.message; return; }
   const {rows, summary: s} = run_projection(p);
   lastRows = rows;
-  document.getElementById("lev_pmt_display").textContent = fmt(p.leverage_monthly);
   document.getElementById("legacy_re").textContent = fmt(s.real_estate_end);
   document.getElementById("legacy_other").textContent = fmt(s.estate);
   document.getElementById("legacy_probate").textContent = fmt(s.probate);
@@ -641,7 +642,16 @@ function scheduleRecalc(){
 }
 for (const id of IDS){
   const el = document.getElementById(id);
-  if (el) el.addEventListener("input", scheduleRecalc);
+  if (el) el.addEventListener("input", () => {
+    // Auto-recalculate leverage payment when loan terms change
+    if (id === "lev_loan" || id === "lev_rate" || id === "lev_amort"){
+      const loan = Number(document.getElementById("lev_loan").value) || 0;
+      const rate = (Number(document.getElementById("lev_rate").value) || 0) / 100;
+      const amort = Number(document.getElementById("lev_amort").value) || 0;
+      document.getElementById("lev_pmt").value = Math.round(loanPMT(loan, rate, amort));
+    }
+    scheduleRecalc();
+  });
 }
 const wo = document.getElementById("withdraw_order");
 if (wo) wo.addEventListener("change", scheduleRecalc);
@@ -887,6 +897,7 @@ const ROLLER = {
   mortgage_monthly:{min:0,max:20000,step:100},
   lev_investment:{min:0,max:10000000,step:10000}, lev_loan:{min:0,max:10000000,step:10000},
   lev_rate:{min:0,max:15,step:0.1,dec:1}, lev_amort:{min:1,max:40,step:1},
+  lev_pmt:{min:0,max:20000,step:25}, other_monthly:{min:0,max:20000,step:100},
   mc_sims:{values:[100,200,300,500,1000,2000,5000,10000]},
   mc_sd_mkt:{min:0,max:30,step:0.5,dec:1}, mc_sd_inf:{min:0,max:5,step:0.1,dec:1},
   mc_sd_re:{min:0,max:20,step:0.5,dec:1}
