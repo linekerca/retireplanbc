@@ -115,7 +115,7 @@
   <div class="row"><label>RRSP</label><input id="rrsp" type="number" value="800000"></div>
   <div class="row"><label>LIRA (locked-in)</label><input id="lira" type="number" value="0"></div>
   <div class="row"><label>TFSA</label><input id="tfsa" type="number" value="480000"></div>
-  <div class="row"><label>Non-registered (taxable)</label><input id="taxable" type="number" value="450000"></div>
+  <div class="row"><label>Non-registered (taxable)</label><input id="taxable" type="number" value="210000"></div>
   <div class="row"><label>Taxable ACB ($)</label><input id="taxable_acb" type="number" value="410000"></div>
   <div class="row"><label>Real estate (owner-occupied home)</label><input id="real_estate" type="number" value="460000"></div>
 </div>
@@ -139,8 +139,17 @@
 <div class="card">
   <h2>Monthly liabilities</h2>
   <div class="row"><label>Home mortgage payment ($/month)</label><input id="mortgage_monthly" type="number" value="0"></div>
-  <div class="row"><label>Leverage loan payment ($/month)</label><input id="leverage_monthly" type="number" value="1100"></div>
 </div>
+</div>
+
+<div class="card">
+  <h2>Leverage investment</h2>
+  <div class="row"><label>Investment amount ($)</label><input id="lev_investment" type="number" value="0"></div>
+  <div class="row"><label>Loan amount ($)</label><input id="lev_loan" type="number" value="188000"></div>
+  <div class="row"><label>Interest rate (%/yr)</label><input id="lev_rate" type="number" value="5" step="0.1"></div>
+  <div class="row"><label>Amortization (years)</label><input id="lev_amort" type="number" value="25"></div>
+  <div class="srow"><span>Monthly payment</span><b id="lev_pmt_display">$1,099</b></div>
+  <div class="fine">Payment is auto-calculated and used as the leverage loan payment above.</div>
 </div>
 
 <div class="btnrow">
@@ -493,11 +502,20 @@ function _project(p){
 const IDS = ["current_age","retire_age","life_expectancy","annual_spending","tfsa_annual_contrib","rrsp","lira",
   "tfsa","taxable","taxable_acb","real_estate","market_return","real_estate_return",
   "inflation","rental_monthly","cpp_monthly_65","cpp_start",
-  "oas_start","oas_res_years","mortgage_monthly","leverage_monthly"];
+  "oas_start","oas_res_years","mortgage_monthly",
+  "lev_investment","lev_loan","lev_rate","lev_amort"];
 const INT_IDS = new Set(["current_age","retire_age","life_expectancy","cpp_start","oas_start","oas_res_years"]);
-const PCT_IDS = new Set(["market_return","real_estate_return","inflation"]);
+const PCT_IDS = new Set(["market_return","real_estate_return","inflation","lev_rate"]);
 let lastRows = [];
 
+function loanPMT(principal, annualRate, years){
+  const n = Math.round(years * 12);
+  if (n <= 0 || principal <= 0) return 0;
+  const r = annualRate / 12;
+  if (r <= 0) return principal / n;
+  const f = Math.pow(1 + r, n);
+  return principal * r * f / (f - 1);
+}
 function get_inputs(){
   const p = {};
   for (const id of IDS){
@@ -510,6 +528,7 @@ function get_inputs(){
   for (const id of INT_IDS) p[id] = Math.floor(p[id]);
   p.withdraw_order = document.getElementById("withdraw_order").value;
   p.rental_taxfree = true;
+  p.leverage_monthly = loanPMT(p.lev_loan, p.lev_rate, p.lev_amort);
   if (p.retire_age < p.current_age) throw new Error("Retirement age can't be before current age.");
   return p;
 }
@@ -529,6 +548,7 @@ function recalc(){
   catch(e){ err.textContent = e.message; return; }
   const {rows, summary: s} = run_projection(p);
   lastRows = rows;
+  document.getElementById("lev_pmt_display").textContent = fmt(p.leverage_monthly);
   document.getElementById("legacy_re").textContent = fmt(s.real_estate_end);
   document.getElementById("legacy_other").textContent = fmt(s.estate);
   document.getElementById("legacy_probate").textContent = fmt(s.probate);
@@ -844,7 +864,9 @@ const ROLLER = {
   rental_monthly:{min:0,max:50000,step:100}, cpp_monthly_65:{min:0,max:1600,step:1},
   cpp_start:{values:[60,61,62,63,64,65,66,67,68,69,70]}, oas_start:{values:[65,70]},
   oas_res_years:{min:0,max:47,step:1},
-  mortgage_monthly:{min:0,max:20000,step:100}, leverage_monthly:{min:0,max:20000,step:100},
+  mortgage_monthly:{min:0,max:20000,step:100},
+  lev_investment:{min:0,max:10000000,step:10000}, lev_loan:{min:0,max:10000000,step:10000},
+  lev_rate:{min:0,max:15,step:0.1,dec:1}, lev_amort:{min:1,max:40,step:1},
   mc_sims:{values:[100,200,300,500,1000,2000,5000,10000]},
   mc_sd_mkt:{min:0,max:30,step:0.5,dec:1}, mc_sd_inf:{min:0,max:5,step:0.1,dec:1},
   mc_sd_re:{min:0,max:20,step:0.5,dec:1}
