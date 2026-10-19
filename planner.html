@@ -346,7 +346,7 @@ function _project(p){
     rrsp *= (1+ret); tfsa *= (1+ret); taxable *= (1+ret);
     re_estate *= (1 + re_ret);
 
-    const spending = (p.annual_spending + (p.mortgage_monthly + p.other_monthly + p.leverage_monthly)*12) * infl;
+    const spending = (p.annual_spending + p.other_monthly*12) * infl + (p.mortgage_monthly + p.leverage_monthly)*12;
     const rental = p.rental_monthly*12*infl;
     const rental_tax = 0.0; // net rental income treated as non-taxable (CCA)
     const cpp = (age >= p.cpp_start) ? cpp_annual(p.cpp_monthly_65, p.cpp_start, infl) : 0;
