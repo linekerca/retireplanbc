@@ -154,9 +154,6 @@
 </div>
 
 
-<div class="btnrow">
-  <button id="csv" class="secondary">Export CSV</button>
-</div>
 <div id="err" class="err"></div>
 
 <div class="card">
@@ -169,11 +166,9 @@
 </div>
 
 <div class="card">
-  <h2>Summary</h2>
-  <div id="summary_rows"><div class="srow"><span>Calculating&hellip;</span></div></div>
   <h2 class="sub">Strategy comparison</h2>
   <div class="tablewrap"><table id="comp">
-    <thead><tr><th>Strategy</th><th>After-tax legacy</th><th>Lifetime taxes</th></tr></thead>
+    <thead><tr><th>Strategy</th><th>After-tax legacy</th><th>Lifetime taxes</th><th>Probate</th><th>Terminal tax</th></tr></thead>
     <tbody></tbody>
   </table></div>
 </div>
@@ -313,7 +308,8 @@ function run_projection(p){
   summary.comparison = {};
   for (const s of STRATEGIES){
     summary.comparison[s] = {legacy: comp[s].summary.legacy_after_tax, taxes: comp[s].summary.total_taxes,
-                             shortfall_age: comp[s].summary.shortfall_age};
+                             shortfall_age: comp[s].summary.shortfall_age,
+                             probate: comp[s].summary.probate, final_tax: comp[s].summary.final_tax};
   }
   return {rows, summary};
 }
@@ -575,26 +571,7 @@ function recalc(){
   document.getElementById("legacy_probate").textContent = fmt(s.probate);
   document.getElementById("legacy_finaltax").textContent = fmt(s.final_tax);
   document.getElementById("legacy_after").textContent = fmt(s.legacy_after_tax);
-  const sr = document.getElementById("summary_rows");
-  sr.innerHTML = "";
-  function srow(label, value, bold){
-    const d = document.createElement("div"); d.className = "srow";
-    const s = document.createElement("span"); s.textContent = label;
-    const b = document.createElement("b"); b.textContent = value;
-    if (bold) d.style.fontWeight = "700";
-    d.appendChild(s); d.appendChild(b); sr.appendChild(d);
-  }
-  srow("Projection", `Age ${p.current_age}\u2013${p.life_expectancy} (${s.years} yrs)`);
-  srow("Lifetime income tax", fmt(s.total_taxes));
-  if (s.total_oas_clawed > 1) srow("OAS lost to clawback", fmt(s.total_oas_clawed));
-  const dep = Object.entries(s.depletion);
-  srow("Accounts", dep.length ? "Depleted: " + dep.map(([k,v]) => `${k} @ ${v}`).join(", ") : "None fully depleted");
-  srow("Spending", s.shortfall_age ? `Shortfall from age ${s.shortfall_age}` : "Met every year");
-  srow("Estate (before final taxes)", fmt(s.estate));
-  srow("Final year \u2014 probate", fmt(s.probate));
-  srow("Final year \u2014 terminal tax", fmt(s.final_tax));
-  srow("Legacy after tax & probate", fmt(s.legacy_after_tax), true);
-  srow("Withdrawal strategy", STRATEGY_LABELS[s.strategy_used]);
+  // Summary section removed — probate/terminal tax now in strategy comparison table
 
   const comp = s.comparison;
   const best_leg = STRATEGIES.reduce((a,b) => comp[a].legacy >= comp[b].legacy ? a : b);
@@ -608,7 +585,7 @@ function recalc(){
     if (code === best_tax) marks.push("lowest taxes");
     const tr = document.createElement("tr");
     const name = STRATEGY_LABELS[code] + (marks.length ? " \u2605 " + marks.join(" & ") : "");
-    [name, fmt(c.legacy), fmt(c.taxes)].forEach(t => {
+    [name, fmt(c.legacy), fmt(c.taxes), fmt(c.probate), fmt(c.final_tax)].forEach(t => {
       const td = document.createElement("td"); td.textContent = t; tr.appendChild(td);
     });
     ctb.appendChild(tr);
@@ -1104,6 +1081,10 @@ document.querySelectorAll(".row input").forEach(inp => {
   sync();
 })();
 </script>
+
+<div class="btnrow">
+  <button id="csv" class="secondary">Export CSV</button>
+</div>
 
 </body>
 </html>
