@@ -452,7 +452,7 @@ function _project(p){
     }
 
     const oas_clawed_yr = Math.max(0, oas_full - oas);
-    rows.push({age, year: 2026+i, rrsp, tfsa, taxable,
+    rows.push({age, year: 2026+i, rrsp, tfsa, taxable, re: re_estate,
       rental, cpp, oas, oas_clawed: oas_clawed_yr, claw_thr,
       w_taxable: wt, w_rrsp: wr, w_tfsa: wf,
       tfsa_contrib: contrib_made,
@@ -645,7 +645,7 @@ function runMC(){
   const n_years = Math.floor(p.life_expectancy - p.current_age) + 1;
   let done = 0, ok = 0;
   const legs = [];
-  let failed_count = 0, total_shortfall = 0, total_fail_age = 0;
+  let failed_count = 0, total_shortfall = 0, total_fail_age = 0, total_fail_re = 0, total_fail_stock = 0;
   const CHUNK = 25;
   el.innerHTML = '<div class="srow"><span>Simulating&hellip; 0%</span></div>';
   function chunk(){
@@ -666,7 +666,11 @@ function runMC(){
         let sim_short = 0;
         for (const row of r.rows) sim_short += row.shortfall || 0;
         total_shortfall += sim_short;
-        total_fail_age += r.summary.shortfall_age || 0;
+        const fail_age = r.summary.shortfall_age || 0;
+        total_fail_age += fail_age;
+        const fr = r.rows.find(rw => rw.age === fail_age) || r.rows[r.rows.length-1];
+        total_fail_re += fr.re || 0;
+        total_fail_stock += (fr.rrsp || 0) + (fr.tfsa || 0) + (fr.taxable || 0);
       }
       legs.push(r.summary.legacy_after_tax);
     }
@@ -691,6 +695,8 @@ function runMC(){
         const avg_age = total_fail_age / failed_count;
         srow("Avg monthly shortfall (failed plans)", fmt(avg_monthly) + "/mo (" + failed_count + " plans)");
         srow("Avg age plan failed", "Age " + avg_age.toFixed(1));
+        srow("Avg assets at fail age — real estate", fmt(total_fail_re / failed_count));
+        srow("Avg assets at fail age — stock investment", fmt(total_fail_stock / failed_count));
       }
       srow("Legacy (10th %ile)", fmt(q(0.1)));
       srow("Legacy (median)", fmt(q(0.5)));
