@@ -844,7 +844,10 @@ const ROLLER = {
   rental_monthly:{min:0,max:50000,step:100}, cpp_monthly_65:{min:0,max:1600,step:1},
   cpp_start:{values:[60,61,62,63,64,65,66,67,68,69,70]}, oas_start:{values:[65,70]},
   oas_res_years:{min:0,max:47,step:1},
-  mortgage_monthly:{min:0,max:20000,step:100}, leverage_monthly:{min:0,max:20000,step:100}
+  mortgage_monthly:{min:0,max:20000,step:100}, leverage_monthly:{min:0,max:20000,step:100},
+  mc_sims:{values:[100,200,300,500,1000,2000,5000,10000]},
+  mc_sd_mkt:{min:0,max:30,step:0.5,dec:1}, mc_sd_inf:{min:0,max:5,step:0.1,dec:1},
+  mc_sd_re:{min:0,max:20,step:0.5,dec:1}
 };
 const ITEM_H = 44;
 let sheetInput = null, rollerVals = [], pendingIdx = 0;
