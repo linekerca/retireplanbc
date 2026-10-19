@@ -144,7 +144,6 @@
 </div>
 
 <div class="btnrow">
-  <button id="calc">Calculate plan</button>
   <button id="csv" class="secondary">Export CSV</button>
 </div>
 <div id="err" class="err"></div>
@@ -160,7 +159,7 @@
 
 <div class="card">
   <h2>Summary</h2>
-  <div id="summary_rows"><div class="srow"><span>Enter your numbers and tap Calculate plan.</span></div></div>
+  <div id="summary_rows"><div class="srow"><span>Calculating&hellip;</span></div></div>
   <h2 class="sub">Strategy comparison</h2>
   <div class="tablewrap"><table id="comp">
     <thead><tr><th>Strategy</th><th>After-tax legacy</th><th>Lifetime taxes</th></tr></thead>
@@ -499,7 +498,7 @@ function get_inputs(){
 }
 const fmt = v => "$" + Math.round(v).toLocaleString("en-CA");
 
-document.getElementById("calc").addEventListener("click", () => {
+function recalc(){
   const err = document.getElementById("err");
   err.textContent = "";
   let p;
@@ -569,7 +568,21 @@ document.getElementById("calc").addEventListener("click", () => {
   }
   drawCashFlowChart(rows);
   drawClawbackChart(rows);
-});
+}
+// Auto-recalculate on any input change; no Calculate button.
+let recalcTimer = null;
+function scheduleRecalc(){
+  clearTimeout(recalcTimer);
+  recalcTimer = setTimeout(recalc, 120);
+}
+for (const id of IDS){
+  const el = document.getElementById(id);
+  if (el) el.addEventListener("input", scheduleRecalc);
+}
+const wo = document.getElementById("withdraw_order");
+if (wo) wo.addEventListener("change", scheduleRecalc);
+window.addEventListener("load", recalc);
+recalc();
 
 function drawClawbackChart(rows){
   const cv = document.getElementById("clawchart");
@@ -710,7 +723,7 @@ function drawCashFlowChart(rows){
 }
 
 document.getElementById("csv").addEventListener("click", () => {
-  if (!lastRows.length){ alert("Calculate a plan first."); return; }
+  if (!lastRows.length){ alert("No results yet."); return; }
   const keys = Object.keys(lastRows[0]);
   const csv = [keys.join(",")].concat(
     lastRows.map(r => keys.map(k => {
@@ -802,6 +815,7 @@ function openRoller(inp){
 function closeRoller(apply){
   if (apply && sheetInput && rollerVals.length){
     sheetInput.value = rollerVals[pendingIdx];
+    sheetInput.dispatchEvent(new Event("input", {bubbles: true}));
   }
   sheetInput = null;
   document.getElementById("backdrop").classList.remove("open");
