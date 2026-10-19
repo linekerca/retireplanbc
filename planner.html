@@ -181,6 +181,16 @@
 </div>
 
 <div class="card">
+  <h2>Monte Carlo</h2>
+  <div class="row"><label>Simulations</label><input id="mc_sims" type="number" value="1000"></div>
+  <div class="row"><label>Market return std dev (%)</label><input id="mc_sd_mkt" type="number" value="12" step="0.5"></div>
+  <div class="row"><label>Inflation std dev (%)</label><input id="mc_sd_inf" type="number" value="1.5" step="0.1"></div>
+  <div class="row"><label>Real estate std dev (%)</label><input id="mc_sd_re" type="number" value="8" step="0.5"></div>
+  <div id="mc_results"><div class="srow"><span>Simulating&hellip;</span></div></div>
+  <div class="fine">Each simulation draws yearly market return, inflation, and real-estate return from a normal distribution centered on your inputs. Success = spending met every year.</div>
+</div>
+
+<div class="card">
   <h2>Year-by-year projection</h2>
   <div class="tablewrap"><table id="grid">
     <thead><tr><th>Age</th><th>RRSP end $</th><th>Taxable end $</th><th>TFSA end $</th>
@@ -317,12 +327,19 @@ function _project(p){
   let shortfall_age = null;
   const n_years = Math.floor(p.life_expectancy - p.current_age) + 1;
 
+  let infl_cum = 1;
   for (let i = 0; i < n_years; i++){
     const age = p.current_age + i;
-    const infl = Math.pow(1 + p.inflation, i);
-    const ret = p.market_return;
+    let infl, ret, re_ret;
+    if (p.mc){
+      ret = p.mc.mkt[i]; re_ret = p.mc.re[i];
+      infl = infl_cum; infl_cum *= (1 + p.mc.inf[i]);
+    } else {
+      infl = Math.pow(1 + p.inflation, i);
+      ret = p.market_return; re_ret = p.real_estate_return;
+    }
     rrsp *= (1+ret); tfsa *= (1+ret); taxable *= (1+ret);
-    re_estate *= (1 + p.real_estate_return);
+    re_estate *= (1 + re_ret);
 
     const spending = (p.annual_spending + (p.mortgage_monthly + p.leverage_monthly)*12) * infl;
     const rental = p.rental_monthly*12*infl;
@@ -498,6 +515,33 @@ function get_inputs(){
 }
 const fmt = v => "$" + Math.round(v).toLocaleString("en-CA");
 
+function randn(){
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+}
+function runMonteCarlo(p, nSims, sdMkt, sdInf, sdRe){
+  const base = run_projection(p);
+  const eff = base.summary.strategy_used;
+  const n_years = Math.floor(p.life_expectancy - p.current_age) + 1;
+  let ok = 0;
+  const legs = [];
+  for (let s = 0; s < nSims; s++){
+    const mc = {mkt: [], inf: [], re: []};
+    for (let i = 0; i < n_years; i++){
+      mc.mkt.push(p.market_return + randn() * sdMkt);
+      mc.inf.push(p.inflation + randn() * sdInf);
+      mc.re.push(p.real_estate_return + randn() * sdRe);
+    }
+    const r = _project(Object.assign({}, p, {withdraw_order: eff, mc: mc}));
+    if (!r.summary.shortfall_age) ok++;
+    legs.push(r.summary.legacy_after_tax);
+  }
+  legs.sort((a,b) => a - b);
+  const q = x => legs[Math.min(nSims-1, Math.floor(nSims * x))];
+  return {rate: ok / nSims, p10: q(0.1), p50: q(0.5), p90: q(0.9), n: nSims};
+}
 function recalc(){
   const err = document.getElementById("err");
   err.textContent = "";
@@ -568,6 +612,7 @@ function recalc(){
   }
   drawCashFlowChart(rows);
   drawClawbackChart(rows);
+  scheduleMC();
 }
 // Auto-recalculate on any input change; no Calculate button.
 let recalcTimer = null;
@@ -583,6 +628,41 @@ const wo = document.getElementById("withdraw_order");
 if (wo) wo.addEventListener("change", scheduleRecalc);
 window.addEventListener("load", recalc);
 recalc();
+let mcTimer = null;
+function scheduleMC(){
+  clearTimeout(mcTimer);
+  mcTimer = setTimeout(runMC, 800);
+}
+function runMC(){
+  const el = document.getElementById("mc_results");
+  if (!el) return;
+  let p;
+  try { p = get_inputs(); } catch(e){ el.innerHTML = ""; return; }
+  el.innerHTML = '<div class="srow"><span>Simulating&hellip;</span></div>';
+  setTimeout(() => {
+    const n = Math.max(100, Math.min(10000, parseInt(document.getElementById("mc_sims").value) || 1000));
+    const sdM = (parseFloat(document.getElementById("mc_sd_mkt").value) || 0) / 100;
+    const sdI = (parseFloat(document.getElementById("mc_sd_inf").value) || 0) / 100;
+    const sdR = (parseFloat(document.getElementById("mc_sd_re").value) || 0) / 100;
+    const r = runMonteCarlo(p, n, sdM, sdI, sdR);
+    el.innerHTML = "";
+    function srow(l, v, b){
+      const d = document.createElement("div"); d.className = "srow";
+      const s = document.createElement("span"); s.textContent = l;
+      const bb = document.createElement("b"); bb.textContent = v;
+      if (b) d.style.fontWeight = "700";
+      d.appendChild(s); d.appendChild(bb); el.appendChild(d);
+    }
+    srow("Success rate", (r.rate*100).toFixed(1) + "% (" + Math.round(r.rate*r.n) + "/" + r.n + ")", true);
+    srow("Legacy (10th %ile)", fmt(r.p10));
+    srow("Legacy (median)", fmt(r.p50));
+    srow("Legacy (90th %ile)", fmt(r.p90));
+  }, 30);
+}
+for (const id of ["mc_sims","mc_sd_mkt","mc_sd_inf","mc_sd_re"]){
+  const el = document.getElementById(id);
+  if (el) el.addEventListener("input", scheduleMC);
+}
 
 function drawClawbackChart(rows){
   const cv = document.getElementById("clawchart");
