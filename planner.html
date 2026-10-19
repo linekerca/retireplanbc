@@ -878,7 +878,23 @@ document.querySelectorAll(".row input").forEach(inp => {
   function press(clientY){
     dragging = true; maybeTap = true; tapY = clientY;
     startY = clientY;
-    startTop = parseFloat(thumb.style.top) || thumb.offsetTop || 0;
+    // If touch lands on the track (outside the thumb), jump thumb to finger first
+    // so the drag tracks the finger instead of dragging from a stale offset.
+    const rect = bar.getBoundingClientRect(), th = thumb.offsetHeight;
+    const thumbTop = thumb.offsetTop, touchRel = clientY - rect.top;
+    if (touchRel < thumbTop || touchRel > thumbTop + th){
+      const g = geom();
+      if (g.maxTop > 0 && g.maxScroll > 0){
+        const newTop = Math.max(0, Math.min(g.maxTop, touchRel - th / 2));
+        thumb.style.top = newTop + "px";
+        doScroll((newTop / g.maxTop) * g.maxScroll);
+        startTop = newTop;
+      } else {
+        startTop = parseFloat(thumb.style.top) || thumb.offsetTop || 0;
+      }
+    } else {
+      startTop = parseFloat(thumb.style.top) || thumb.offsetTop || 0;
+    }
   }
   function moveThumb(clientY){
     const g = geom();
@@ -914,12 +930,11 @@ document.querySelectorAll(".row input").forEach(inp => {
   // A touch that doesn't move is a tap (jump to position).
   bar.addEventListener("touchstart", e => {
     e.preventDefault();
-    bar.style.background = "#ff3b30"; // DEBUG: flash red if touch lands
-    setTimeout(()=>{ bar.style.background = ""; }, 300);
-    press(e.touches[0].clientY);
+    if (e.touches.length > 0) press(e.touches[0].clientY);
   }, {passive: false});
   bar.addEventListener("touchmove", e => {
-    e.preventDefault(); onMove(e.touches[0].clientY);
+    e.preventDefault();
+    if (e.touches.length > 0) onMove(e.touches[0].clientY);
   }, {passive: false});
   bar.addEventListener("touchend", onEnd);
   bar.addEventListener("touchcancel", onEnd);
