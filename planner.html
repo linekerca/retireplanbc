@@ -99,6 +99,7 @@
   <div class="row"><label>Current age</label><input id="current_age" type="number" value="49"></div>
   <div class="row"><label>Retirement age</label><input id="retire_age" type="number" value="50"></div>
   <div class="row"><label>Plan to age</label><input id="life_expectancy" type="number" value="90"></div>
+  <div class="row"><label>Annual income before tax ($)</label><input id="annual_income_pretax" type="number" value="0"></div>
   <div class="row"><label>Annual spending (after-tax, $)</label><input id="annual_spending" type="number" value="60000"></div>
   <div class="row"><label>TFSA annual contribution ($/yr, +$500 every 4 yrs)</label><input id="tfsa_annual_contrib" type="number" value="7000"></div>
   <div class="row"><label>Withdrawal order</label><select id="withdraw_order">
@@ -342,15 +343,17 @@ function _project(p){
     const claw_thr = OAS_CLAWBACK_THRESHOLD_2026 * infl;
     const meltdown_t = 58523 * infl; // hardcoded (was user input)
 
-    const spend_need = Math.max(0, spending - rental);
+    const E = (p.annual_income_pretax || 0) * infl; // annual employment income, inflation-adjusted
+    let after_tax_E = E; // refined in iteration below
     const contrib = p.tfsa_annual_contrib + 500 * Math.floor(i / 4); // stepped: +$500 every 4 yrs
-    const need = spend_need + contrib;
+    let spend_need = Math.max(0, spending - rental - after_tax_E);
+    let need = spend_need + contrib;
     let remaining = need;
 
     let oas = oas_annual(p.oas_res_years, p.oas_start, age, cpp + rental_tax, claw_thr);
     let wt = 0, wr = 0, wf = 0;
     for (let it = 0; it < 6; it++){
-      const base_ti = cpp + rental_tax + oas;
+      const base_ti = cpp + rental_tax + oas + E;
 
       function net_of_taxable(w, ti_base){
         const g = gains_on(w, taxable, acb);
@@ -405,6 +408,13 @@ function _project(p){
       }
 
       const oas_new = oas_annual(p.oas_res_years, p.oas_start, age, ti_now, claw_thr);
+      // refine after-tax employment income using marginal tax on E
+      const tax_w_E = tax_indexed(ti_now, infl, FED_BPA_2026, BC_BPA_2026);
+      const tax_wo_E = tax_indexed(ti_now - E, infl, FED_BPA_2026, BC_BPA_2026);
+      after_tax_E = E - (tax_w_E - tax_wo_E);
+      spend_need = Math.max(0, spending - rental - after_tax_E);
+      need = spend_need + contrib;
+      remaining = need;
       if (Math.abs(oas_new - oas) < 1.0){ oas = oas_new; break; }
       oas = oas_new;
     }
@@ -417,13 +427,16 @@ function _project(p){
     rrsp -= wr;
 
     const g = gains_on(wt, pre_taxable, pre_acb);
-    const ti = cpp + rental_tax + oas + g + wr;
+    const ti = cpp + rental_tax + oas + E + g + wr;
     const tax = tax_indexed(ti, infl, FED_BPA_2026, BC_BPA_2026);
-    const base_tax = tax_indexed(cpp + rental_tax + oas, infl, FED_BPA_2026, BC_BPA_2026);
+    const base_tax = tax_indexed(cpp + rental_tax + oas + E, infl, FED_BPA_2026, BC_BPA_2026);
     const net_from_wd = wt + wr - (tax - base_tax);
     let got = net_from_wd;
     const surplus = Math.max(0, got - need);
     if (surplus > 0){ taxable += surplus; acb += surplus; got = need; }
+    // excess after-tax employment income goes to non-registered account
+    const excess_E = Math.max(0, after_tax_E - Math.max(0, spending - rental));
+    if (excess_E > 0){ taxable += excess_E; acb += excess_E; }
 
     // TFSA last resort covers spending shortfall only (not the contribution)
     if (got < spend_need && tfsa > 0){
@@ -486,7 +499,7 @@ function _project(p){
 }
 // ===ENGINE END===
 
-const IDS = ["current_age","retire_age","life_expectancy","annual_spending","tfsa_annual_contrib","rrsp","lira",
+const IDS = ["current_age","retire_age","life_expectancy","annual_income_pretax","annual_spending","tfsa_annual_contrib","rrsp","lira",
   "tfsa","taxable","taxable_acb","real_estate","market_return","real_estate_return",
   "inflation","rental_monthly","cpp_monthly_65","cpp_start",
   "oas_start","oas_res_years","mortgage_monthly",
@@ -793,7 +806,7 @@ document.getElementById("csv").addEventListener("click", () => {
 const ROLLER = {
   current_age:{min:18,max:100,step:1}, retire_age:{min:18,max:100,step:1},
   life_expectancy:{min:50,max:110,step:1},
-  annual_spending:{min:0,max:500000,step:1000}, tfsa_annual_contrib:{min:0,max:25000,step:500},
+  annual_spending:{min:0,max:500000,step:1000}, annual_income_pretax:{min:0,max:500000,step:1000}, tfsa_annual_contrib:{min:0,max:25000,step:500},
   rrsp:{min:0,max:10000000,step:10000}, lira:{min:0,max:10000000,step:10000},
   tfsa:{min:0,max:10000000,step:10000}, taxable:{min:0,max:10000000,step:10000},
   taxable_acb:{min:0,max:10000000,step:10000}, real_estate:{min:0,max:20000000,step:10000},
