@@ -186,6 +186,7 @@
   <div class="tablewrap"><table id="grid">
     <thead><tr><th>Age</th><th>RRSP end $</th><th>Taxable end $</th><th>TFSA end $</th>
     <th>CPP+OAS $</th><th>RRSP wd $</th><th>Taxable wd $</th><th>TFSA wd $</th>
+    <th>Wd bef tax $</th><th>Wd aft tax $</th>
     <th>Tax $</th><th>Shortfall $</th></tr></thead>
     <tbody></tbody>
   </table></div>
@@ -554,8 +555,10 @@ document.getElementById("calc").addEventListener("click", () => {
   tb.innerHTML = "";
   for (const r of rows){
     const tr = document.createElement("tr");
+    const wd_bef = r.w_rrsp + r.w_taxable + r.w_tfsa + r.cpp + r.oas;
+    const wd_aft = wd_bef - r.tax;
     const cells = [r.age, fmt(r.rrsp), fmt(r.taxable), fmt(r.tfsa), fmt(r.cpp+r.oas),
-      fmt(r.w_rrsp), fmt(r.w_taxable), fmt(r.w_tfsa), fmt(r.tax),
+      fmt(r.w_rrsp), fmt(r.w_taxable), fmt(r.w_tfsa), fmt(wd_bef), fmt(wd_aft), fmt(r.tax),
       r.shortfall > 1 ? fmt(r.shortfall) : "\u2013"];
     for (let i = 0; i < cells.length; i++){
       const td = document.createElement("td");
