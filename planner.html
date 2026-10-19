@@ -343,7 +343,7 @@ function _project(p){
     const claw_thr = OAS_CLAWBACK_THRESHOLD_2026 * infl;
     const meltdown_t = 58523 * infl; // hardcoded (was user input)
 
-    const E = (p.annual_income_pretax || 0) * infl; // annual employment income, inflation-adjusted
+    const E = (age < p.retire_age ? (p.annual_income_pretax || 0) : 0) * infl; // employment income stops at retirement
     let after_tax_E = E; // refined in iteration below
     const contrib = p.tfsa_annual_contrib + 500 * Math.floor(i / 4); // stepped: +$500 every 4 yrs
     let spend_need = Math.max(0, spending - rental - after_tax_E);
